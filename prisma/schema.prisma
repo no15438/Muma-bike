@@ -1,0 +1,268 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// 用户表 - User
+model User {
+  id            String            @id @default(cuid())
+  username      String            @unique
+  email         String            @unique
+  phone         String?
+  passwordHash  String
+  joinDate      DateTime          @default(now())
+  points        Int               @default(0)
+  isStaff       Boolean           @default(false)
+  orders        Order[]
+  appointments  Appointment[]
+  cartItems     CartItem[]
+  wishlist      Wishlist[]
+  registrations EventRegistration[]
+  pointHistory  PointHistory[]
+  userCoupons   UserCoupon[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+}
+
+// 商品表 - Product
+model Product {
+  id            String        @id @default(cuid())
+  name          String
+  description   String        @db.Text
+  price         Decimal       @db.Decimal(10, 2)
+  originalPrice Decimal?      @db.Decimal(10, 2)
+  stock         Int           @default(0)
+  categoryId    String
+  category      Category      @relation(fields: [categoryId], references: [id])
+  brandId       String
+  brand         Brand         @relation(fields: [brandId], references: [id])
+  images        String        @db.Text // Stored as JSON array
+  features      String?       @db.Text // Stored as JSON array
+  rating        Float         @default(0)
+  reviews       Int           @default(0)
+  isNew         Boolean       @default(false)
+  isFeatured    Boolean       @default(false)
+  discount      Int?
+  orderItems    OrderItem[]
+  cartItems     CartItem[]
+  wishlistItems Wishlist[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+// 商品分类表 - Category
+model Category {
+  id              String    @id @default(cuid())
+  name            String
+  description     String    @db.Text
+  showOnHomepage  Boolean   @default(false)
+  products        Product[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+// 品牌表 - Brand
+model Brand {
+  id          String    @id @default(cuid())
+  name        String
+  logo        String
+  description String    @db.Text
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// 购物车项表 - CartItem
+model CartItem {
+  id          String  @id @default(cuid())
+  userId      String
+  user        User    @relation(fields: [userId], references: [id])
+  productId   String
+  product     Product @relation(fields: [productId], references: [id])
+  quantity    Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, productId])
+}
+
+// 收藏夹表 - Wishlist
+model Wishlist {
+  id          String  @id @default(cuid())
+  userId      String
+  user        User    @relation(fields: [userId], references: [id])
+  productId   String
+  product     Product @relation(fields: [productId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, productId])
+}
+
+// 订单表 - Order
+model Order {
+  id              String      @id @default(cuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id])
+  orderDate       DateTime    @default(now())
+  status          String      // Pending, Paid, Shipped, Completed, Cancelled
+  totalAmount     Decimal     @db.Decimal(10, 2)
+  paymentMethod   String?     // alipay, wechat
+  paymentId       String?     @unique
+  payment         Payment?
+  shipmentId      String?     @unique
+  shipment        Shipment?
+  deliveryAddress String      @db.Text // Stored as JSON
+  items           OrderItem[]
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+// 订单明细表 - OrderItem
+model OrderItem {
+  id          String  @id @default(cuid())
+  orderId     String
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product @relation(fields: [productId], references: [id])
+  quantity    Int
+  price       Decimal @db.Decimal(10, 2)
+  subtotal    Decimal @db.Decimal(10, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// 支付表 - Payment
+model Payment {
+  id              String   @id @default(cuid())
+  orderId         String   @unique
+  order           Order    @relation(fields: [orderId], references: [id])
+  paymentDate     DateTime @default(now())
+  amount          Decimal  @db.Decimal(10, 2)
+  method          String   // alipay, wechat
+  transactionId   String?  // 第三方支付平台返回的交易号
+  status          String   // Succeeded, Failed
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// 物流表 - Shipment
+model Shipment {
+  id              String    @id @default(cuid())
+  orderId         String    @unique
+  order           Order     @relation(fields: [orderId], references: [id])
+  carrier         String    // 承运商名称
+  trackingNumber  String    // 快递单号
+  shipDate        DateTime  @default(now())
+  deliveryDate    DateTime?
+  status          String    // In Transit, Delivered
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+// 预约表 - Appointment
+model Appointment {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  type            String    // Repair, Fitting
+  serviceItems    String    @db.Text
+  appointmentDate DateTime
+  appointmentTime String
+  store           String
+  status          String    // Submitted, Confirmed, InService, Completed, Cancelled
+  extraInfo       String?   @db.Text // 额外信息，如身高、体重等，可存JSON
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+// 积分历史表 - PointHistory
+model PointHistory {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  change      Int      // 正为获取，负为消耗
+  reason      String
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// 优惠券表 - Coupon
+model Coupon {
+  id              String       @id @default(cuid())
+  code            String       @unique
+  name            String
+  description     String       @db.Text
+  discountType    String       // amount, percentage
+  discountValue   Decimal      @db.Decimal(10, 2)
+  minPurchase     Decimal      @db.Decimal(10, 2)
+  startDate       DateTime
+  endDate         DateTime
+  imageUrl        String?
+  userCoupons     UserCoupon[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+// 用户-优惠券关联表 - UserCoupon
+model UserCoupon {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  couponId      String
+  coupon        Coupon    @relation(fields: [couponId], references: [id])
+  acquiredDate  DateTime  @default(now())
+  used          Boolean   @default(false)
+  usedOrderId   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([userId, couponId])
+}
+
+// 活动表 - Event
+model Event {
+  id                String             @id @default(cuid())
+  title             String
+  description       String             @db.Text
+  type              String
+  startTime         DateTime
+  endTime           DateTime
+  location          String
+  maxParticipants   Int?
+  fee               Decimal            @db.Decimal(10, 2) @default(0)
+  status            String             // draft, published, ongoing, completed, cancelled
+  coverImage        String?
+  organizerId       String?
+  registrations     EventRegistration[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+}
+
+// 活动报名表 - EventRegistration
+model EventRegistration {
+  id              String    @id @default(cuid())
+  eventId         String
+  event           Event     @relation(fields: [eventId], references: [id])
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  feePaid         Decimal   @db.Decimal(10, 2) @default(0)
+  paymentStatus   String    // unpaid, paid, refunded
+  registerTime    DateTime  @default(now())
+  checkinStatus   String    @default("not_checkin")
+  checkinTime     DateTime?
+  additionalInfo  String?   @db.Text
+  orderId         String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([eventId, userId])
+} 
