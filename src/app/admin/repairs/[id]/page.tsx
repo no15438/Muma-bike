@@ -52,6 +52,38 @@ function RepairDetailPage() {
   const [tab, setTab] = useState('details'); // 'details', 'services', 'logs'
   const [newLogMessage, setNewLogMessage] = useState('');
 
+  // 添加模态框状态
+  const [showServiceModal, setShowServiceModal] = useState(false);
+  const [showPartModal, setShowPartModal] = useState(false);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  
+  // 添加服务状态
+  const [serviceForm, setServiceForm] = useState({
+    id: '',
+    name: '',
+    description: '',
+    price: 0,
+    estimatedHours: 0
+  });
+  
+  // 添加配件状态
+  const [partForm, setPartForm] = useState({
+    id: '',
+    name: '',
+    description: '',
+    price: 0,
+    quantity: 1,
+    isAvailable: true
+  });
+  
+  // 添加照片状态
+  const [photoForm, setPhotoForm] = useState({
+    url: '',
+    caption: ''
+  });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
   // Load repair data
   useEffect(() => {
     const loadRepair = async () => {
@@ -128,42 +160,164 @@ function RepairDetailPage() {
   };
 
   // Add a new log entry
-  const handleAddLog = async () => {
+  const handleAddLog = () => {
+    // 验证日志内容
     if (!newLogMessage.trim()) {
       alert('请输入日志内容');
       return;
     }
 
+    // 开始更新处理
     setUpdating(true);
-    try {
-      // In a real app, this would be an API call
-      await new Promise(resolve => setTimeout(resolve, 500));
+    
+    try {      
+      // 创建新日志对象
+      const timestamp = new Date().toISOString();
+      const newLog = {
+        id: `log-${Date.now()}`,
+        repairId: repair.id,
+        timestamp,
+        technicianId: repair.assignedTechnicianId || '1',
+        technician: repair.assignedTechnician || { 
+          id: '1', 
+          name: '管理员', 
+          email: 'admin@mumabike.com', 
+          role: 'admin' 
+        },
+        message: newLogMessage,
+        hoursSpent: 0
+      };
       
-      if (repair) {
-        const timestamp = new Date().toISOString();
-        const newLog = {
-          id: `log-${Date.now()}`,
-          repairId: repair.id,
-          timestamp,
-          technicianId: repair.assignedTechnicianId || '1',
-          technician: repair.assignedTechnician || { id: '1', name: '管理员', email: 'admin@mumabike.com', role: 'admin' },
-          message: newLogMessage,
-          hoursSpent: 0 // Could add UI for tracking hours
-        };
-        
-        setRepair({
-          ...repair,
-          logs: [newLog, ...repair.logs],
-          updatedAt: timestamp
-        });
-        
-        setNewLogMessage('');
-      }
+      // 确保logs数组存在
+      const updatedLogs = [newLog, ...(repair.logs || [])];
+      
+      // 更新repair对象
+      setRepair({
+        ...repair,
+        logs: updatedLogs,
+        updatedAt: timestamp
+      });
+      
+      // 清空输入框
+      setNewLogMessage('');
+      console.log('日志添加成功', newLog);
     } catch (err) {
-      console.error('Failed to add log', err);
-      alert('添加日志失败');
+      console.error('添加日志失败', err);
+      alert('添加日志失败，请重试');
     } finally {
       setUpdating(false);
+    }
+  };
+
+  // 删除日志
+  const handleDeleteLog = (logId: string) => {
+    if (!confirm('确定要删除此日志记录吗？这个操作无法撤销。')) {
+      return;
+    }
+
+    setUpdating(true);
+    try {
+      // 确保logs数组存在
+      if (!repair.logs || !Array.isArray(repair.logs)) {
+        console.error('维修单日志数组不存在');
+        alert('删除失败：日志数据格式错误');
+        return;
+      }
+      
+      // 过滤掉要删除的日志
+      const updatedLogs = repair.logs.filter((log: any) => log.id !== logId);
+      
+      // 更新repair对象
+      setRepair({
+        ...repair,
+        logs: updatedLogs,
+        updatedAt: new Date().toISOString()
+      });
+      
+      // 显示成功消息
+      alert('日志删除成功');
+    } catch (err) {
+      console.error('删除日志失败', err);
+      alert('删除日志失败，请重试');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  // 删除服务
+  const handleDeleteService = (serviceId: string) => {
+    if (confirm('确定要删除此服务吗？')) {
+      const serviceToDelete = repair.services.find((s: any) => s.id === serviceId);
+      if (!serviceToDelete) return;
+      
+      setUpdating(true);
+      try {
+        // 模拟API调用
+        setTimeout(() => {
+          // 删除服务并更新总价
+          const updatedServices = repair.services.filter((s: any) => s.id !== serviceId);
+          setRepair({
+            ...repair,
+            services: updatedServices,
+            estimatedCost: repair.estimatedCost - serviceToDelete.price
+          });
+          setUpdating(false);
+        }, 300);
+      } catch (err) {
+        console.error('Failed to delete service', err);
+        alert('删除服务失败');
+        setUpdating(false);
+      }
+    }
+  };
+  
+  // 删除配件
+  const handleDeletePart = (partId: string) => {
+    if (confirm('确定要删除此配件吗？')) {
+      const partToDelete = repair.parts.find((p: any) => p.id === partId);
+      if (!partToDelete) return;
+      
+      setUpdating(true);
+      try {
+        // 模拟API调用
+        setTimeout(() => {
+          // 删除配件并更新总价
+          const updatedParts = repair.parts.filter((p: any) => p.id !== partId);
+          setRepair({
+            ...repair,
+            parts: updatedParts,
+            estimatedCost: repair.estimatedCost - (partToDelete.price * partToDelete.quantity)
+          });
+          setUpdating(false);
+        }, 300);
+      } catch (err) {
+        console.error('Failed to delete part', err);
+        alert('删除配件失败');
+        setUpdating(false);
+      }
+    }
+  };
+  
+  // 删除照片
+  const handleDeletePhoto = (photoId: string) => {
+    if (confirm('确定要删除此照片吗？')) {
+      setUpdating(true);
+      try {
+        // 模拟API调用
+        setTimeout(() => {
+          // 删除照片
+          const updatedImages = repair.images.filter((img: any) => img.id !== photoId);
+          setRepair({
+            ...repair,
+            images: updatedImages
+          });
+          setUpdating(false);
+        }, 300);
+      } catch (err) {
+        console.error('Failed to delete photo', err);
+        alert('删除照片失败');
+        setUpdating(false);
+      }
     }
   };
 
@@ -182,6 +336,153 @@ function RepairDetailPage() {
     );
     
     return serviceCost + partsCost;
+  };
+
+  // 处理添加服务
+  const handleAddService = () => {
+    if(!serviceForm.name || serviceForm.price <= 0) {
+      alert('请填写完整的服务信息');
+      return;
+    }
+    
+    setUpdating(true);
+    
+    try {
+      // 模拟API调用
+      setTimeout(() => {
+        const newService = {
+          ...serviceForm,
+          id: `service-${Date.now()}`
+        };
+        
+        setRepair({
+          ...repair,
+          services: [...repair.services, newService],
+          estimatedCost: repair.estimatedCost + newService.price
+        });
+        
+        // 重置表单
+        setServiceForm({
+          id: '',
+          name: '',
+          description: '',
+          price: 0,
+          estimatedHours: 0
+        });
+        
+        setShowServiceModal(false);
+        setUpdating(false);
+      }, 500);
+    } catch (err) {
+      console.error('Failed to add service', err);
+      alert('添加服务失败');
+      setUpdating(false);
+    }
+  };
+  
+  // 处理添加配件
+  const handleAddPart = () => {
+    if(!partForm.name || partForm.price <= 0 || partForm.quantity <= 0) {
+      alert('请填写完整的配件信息');
+      return;
+    }
+    
+    setUpdating(true);
+    
+    try {
+      // 模拟API调用
+      setTimeout(() => {
+        const newPart = {
+          ...partForm,
+          id: `part-${Date.now()}`
+        };
+        
+        const partTotalPrice = newPart.price * newPart.quantity;
+        
+        setRepair({
+          ...repair,
+          parts: [...repair.parts, newPart],
+          estimatedCost: repair.estimatedCost + partTotalPrice
+        });
+        
+        // 重置表单
+        setPartForm({
+          id: '',
+          name: '',
+          description: '',
+          price: 0,
+          quantity: 1,
+          isAvailable: true
+        });
+        
+        setShowPartModal(false);
+        setUpdating(false);
+      }, 500);
+    } catch (err) {
+      console.error('Failed to add part', err);
+      alert('添加配件失败');
+      setUpdating(false);
+    }
+  };
+  
+  // 处理文件选择
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setSelectedFile(file);
+    
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setPreviewUrl(null);
+    }
+  };
+  
+  // 处理添加照片
+  const handleAddPhoto = () => {
+    if(!selectedFile && !previewUrl) {
+      alert('请选择图片文件');
+      return;
+    }
+    
+    setUpdating(true);
+    
+    try {
+      // 模拟API调用 - 在实际项目中，这里应该上传文件到服务器
+      setTimeout(() => {
+        const newPhoto = {
+          id: `photo-${Date.now()}`,
+          repairId: repair.id,
+          url: previewUrl || '', // 使用预览的base64数据作为URL (仅用于演示)
+          caption: photoForm.caption || '维修照片',
+          timestamp: new Date().toISOString(),
+          uploadedBy: '1' // 默认管理员
+        };
+        
+        setRepair({
+          ...repair,
+          images: [...(repair.images || []), newPhoto]
+        });
+        
+        // 重置表单
+        setPhotoForm({
+          url: '',
+          caption: ''
+        });
+        setSelectedFile(null);
+        setPreviewUrl(null);
+        
+        setShowPhotoModal(false);
+        setUpdating(false);
+      }, 500);
+    } catch (err) {
+      console.error('Failed to add photo', err);
+      alert('添加照片失败');
+      setUpdating(false);
+    }
   };
 
   if (loading) {
@@ -400,6 +701,7 @@ function RepairDetailPage() {
                   <h2 className="text-lg font-medium text-gray-900">维修服务</h2>
                   <button 
                     type="button"
+                    onClick={() => setShowServiceModal(true)}
                     className="inline-flex items-center px-3 py-1 border border-gray-300 text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
                   >
                     <PlusIcon className="-ml-0.5 mr-1 h-4 w-4" />
@@ -416,9 +718,16 @@ function RepairDetailPage() {
                               <h3 className="text-sm font-medium text-gray-900">{service.name}</h3>
                               <p className="mt-1 text-sm text-gray-500">{service.description}</p>
                             </div>
-                            <div className="text-right">
+                            <div className="text-right flex flex-col items-end">
                               <p className="text-sm font-medium text-gray-900">¥{service.price.toLocaleString()}</p>
                               <p className="mt-1 text-xs text-gray-500">预计 {service.estimatedHours} 小时</p>
+                              <button 
+                                onClick={() => handleDeleteService(service.id)}
+                                className="mt-2 inline-flex items-center px-2 py-1 border border-gray-300 text-xs leading-4 font-medium rounded text-red-700 bg-white hover:bg-red-50 focus:outline-none"
+                                disabled={updating}
+                              >
+                                删除
+                              </button>
                             </div>
                           </div>
                         </li>
@@ -436,6 +745,7 @@ function RepairDetailPage() {
                   <h2 className="text-lg font-medium text-gray-900">使用配件</h2>
                   <button 
                     type="button"
+                    onClick={() => setShowPartModal(true)}
                     className="inline-flex items-center px-3 py-1 border border-gray-300 text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
                   >
                     <PlusIcon className="-ml-0.5 mr-1 h-4 w-4" />
@@ -455,7 +765,7 @@ function RepairDetailPage() {
                               )}
                               <p className="mt-1 text-sm text-gray-500">数量: {part.quantity}</p>
                             </div>
-                            <div className="text-right">
+                            <div className="text-right flex flex-col items-end">
                               <p className="text-sm font-medium text-gray-900">
                                 ¥{part.price.toLocaleString()} × {part.quantity} = 
                                 ¥{(part.price * part.quantity).toLocaleString()}
@@ -469,6 +779,13 @@ function RepairDetailPage() {
                                   </span>
                                 )}
                               </p>
+                              <button 
+                                onClick={() => handleDeletePart(part.id)}
+                                className="mt-2 inline-flex items-center px-2 py-1 border border-gray-300 text-xs leading-4 font-medium rounded text-red-700 bg-white hover:bg-red-50 focus:outline-none"
+                                disabled={updating}
+                              >
+                                删除
+                              </button>
                             </div>
                           </div>
                         </li>
@@ -483,51 +800,77 @@ function RepairDetailPage() {
           )}
 
           {tab === 'logs' && (
-            <>
-              {/* 维修日志 */}
-              <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-                <div className="border-b border-gray-200 px-6 py-4">
-                  <h2 className="text-lg font-medium text-gray-900">维修日志</h2>
-                </div>
-                <div className="px-6 py-4">
-                  <div className="mb-4">
-                    <label htmlFor="log" className="sr-only">添加日志</label>
-                    <div className="mt-1 flex rounded-md shadow-sm">
-                      <div className="relative flex items-stretch flex-grow focus-within:z-10">
-                        <input
-                          type="text"
-                          name="log"
-                          id="log"
-                          className="focus:ring-blue-500 focus:border-blue-500 block w-full rounded-none rounded-l-md sm:text-sm border-gray-300"
-                          placeholder="添加维修日志记录..."
-                          value={newLogMessage}
-                          onChange={(e) => setNewLogMessage(e.target.value)}
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleAddLog}
+            <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+              <div className="border-b border-gray-200 px-6 py-4">
+                <h2 className="text-lg font-medium text-gray-900">维修日志</h2>
+              </div>
+              
+              <div className="px-6 py-5">
+                {/* 添加日志表单 */}
+                <div className="mb-5">
+                  <form 
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleAddLog();
+                    }}
+                    className="space-y-3"
+                  >
+                    <div>
+                      <label htmlFor="logMessage" className="block text-sm font-medium text-gray-700 mb-1">
+                        添加新日志
+                      </label>
+                      <textarea
+                        id="logMessage"
+                        name="logMessage"
+                        rows={2}
+                        placeholder="输入维修日志内容..."
+                        value={newLogMessage}
+                        onChange={(e) => setNewLogMessage(e.target.value)}
+                        className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
                         disabled={updating}
-                        className="-ml-px relative inline-flex items-center space-x-2 px-4 py-2 border border-gray-300 text-sm font-medium rounded-r-md text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none"
+                      />
+                    </div>
+                    
+                    <div className="flex justify-end">
+                      <button
+                        type="submit"
+                        disabled={updating || !newLogMessage.trim()}
+                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
                       >
                         {updating ? (
-                          <ArrowPathIcon className="h-5 w-5 text-gray-400 animate-spin" />
+                          <>
+                            <ArrowPathIcon className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                            添加中...
+                          </>
                         ) : (
-                          <PlusIcon className="h-5 w-5 text-gray-400" />
+                          <>
+                            <PlusIcon className="-ml-1 mr-2 h-4 w-4" />
+                            添加日志
+                          </>
                         )}
-                        <span>添加</span>
                       </button>
                     </div>
-                  </div>
-
-                  {repair.logs.length > 0 ? (
+                  </form>
+                </div>
+                
+                {/* 分隔线 */}
+                <div className="border-t border-gray-200 my-4"></div>
+                
+                {/* 日志列表 */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 mb-3">日志记录</h3>
+                  
+                  {repair.logs && repair.logs.length > 0 ? (
                     <ul className="space-y-4">
                       {repair.logs.map((log: any) => (
-                        <li key={log.id} className="bg-gray-50 rounded-lg p-4">
+                        <li key={log.id} className="bg-gray-50 rounded-lg p-4 relative">
                           <div className="flex">
                             <div className="flex-shrink-0">
                               {log.statusChange ? (
-                                <div className={`rounded-full h-8 w-8 flex items-center justify-center ${log.statusChange === RepairStatus.COMPLETED ? 'bg-green-100' : log.statusChange === RepairStatus.CANCELLED ? 'bg-red-100' : 'bg-blue-100'}`}>
+                                <div className={`rounded-full h-8 w-8 flex items-center justify-center ${
+                                  log.statusChange === RepairStatus.COMPLETED ? 'bg-green-100' : 
+                                  log.statusChange === RepairStatus.CANCELLED ? 'bg-red-100' : 'bg-blue-100'
+                                }`}>
                                   {log.statusChange === RepairStatus.COMPLETED ? (
                                     <CheckCircleIcon className="h-5 w-5 text-green-600" />
                                   ) : log.statusChange === RepairStatus.CANCELLED ? (
@@ -542,14 +885,34 @@ function RepairDetailPage() {
                                 </div>
                               )}
                             </div>
-                            <div className="ml-3">
-                              <div className="text-sm font-medium text-gray-900">
-                                {log.technician.name} {log.hoursSpent ? `(工时: ${log.hoursSpent}小时)` : ''}
+                            
+                            <div className="ml-3 flex-grow">
+                              <div className="text-sm text-gray-900 font-medium flex justify-between">
+                                <div>
+                                  {log.technician?.name || '管理员'} 
+                                  {log.hoursSpent > 0 && (
+                                    <span className="ml-2 text-xs text-gray-500">
+                                      工时: {log.hoursSpent}小时
+                                    </span>
+                                  )}
+                                </div>
+                                {!log.statusChange && (
+                                  <button 
+                                    onClick={() => handleDeleteLog(log.id)}
+                                    disabled={updating}
+                                    className="text-red-500 hover:text-red-700 transition-colors flex items-center text-xs border border-red-200 px-1.5 py-0.5 rounded-md hover:bg-red-50"
+                                  >
+                                    <XCircleIcon className="h-4 w-4 mr-1" />
+                                    删除
+                                  </button>
+                                )}
                               </div>
+                              
                               <div className="mt-1 text-sm text-gray-700">
                                 {log.message}
                               </div>
-                              <div className="mt-2 text-xs text-gray-500">
+                              
+                              <div className="mt-1 text-xs text-gray-500">
                                 {formatDate(log.timestamp)}
                               </div>
                             </div>
@@ -558,11 +921,14 @@ function RepairDetailPage() {
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-sm text-gray-500">暂无维修日志</p>
+                    <div className="text-center py-6 bg-gray-50 rounded-lg">
+                      <ChatBubbleLeftRightIcon className="mx-auto h-8 w-8 text-gray-300" />
+                      <p className="mt-2 text-sm text-gray-500">暂无维修日志</p>
+                    </div>
                   )}
                 </div>
               </div>
-            </>
+            </div>
           )}
 
           {tab === 'photos' && (
@@ -573,6 +939,7 @@ function RepairDetailPage() {
                   <h2 className="text-lg font-medium text-gray-900">维修照片</h2>
                   <button 
                     type="button"
+                    onClick={() => setShowPhotoModal(true)}
                     className="inline-flex items-center px-3 py-1 border border-gray-300 text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
                   >
                     <PlusIcon className="-ml-0.5 mr-1 h-4 w-4" />
@@ -581,24 +948,32 @@ function RepairDetailPage() {
                 </div>
                 <div className="px-6 py-4">
                   {repair.images && repair.images.length > 0 ? (
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {repair.images.map((image: any) => (
-                        <div key={image.id} className="group">
-                          <div className="aspect-w-1 aspect-h-1 rounded-lg overflow-hidden bg-gray-100">
+                        <div key={image.id} className="space-y-2">
+                          <div className="rounded-lg overflow-hidden bg-gray-100 relative group">
                             <img
                               src={image.url}
                               alt={image.caption || '维修照片'}
-                              className="object-cover"
+                              className="w-full object-contain"
                             />
-                            <div className="opacity-0 group-hover:opacity-100 absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 transition-opacity">
-                              <button className="text-white p-2 rounded-full bg-gray-800 bg-opacity-50 hover:bg-opacity-75">
-                                查看
+                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button 
+                                onClick={() => handleDeletePhoto(image.id)}
+                                className="bg-red-600 text-white p-1.5 rounded-full hover:bg-red-700 focus:outline-none"
+                                disabled={updating}
+                                title="删除照片"
+                              >
+                                <XCircleIcon className="h-5 w-5" />
                               </button>
                             </div>
                           </div>
-                          {image.caption && (
-                            <p className="mt-2 text-sm text-gray-500 truncate">{image.caption}</p>
-                          )}
+                          <div className="space-y-1">
+                            {image.caption && (
+                              <p className="text-sm text-gray-700 font-medium">{image.caption}</p>
+                            )}
+                            <p className="text-xs text-gray-500">上传时间: {formatDate(image.timestamp)}</p>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -754,6 +1129,298 @@ function RepairDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* 添加服务模态框 */}
+      {showServiceModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg max-w-lg w-full p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium">添加维修服务</h3>
+              <button 
+                onClick={() => setShowServiceModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <XCircleIcon className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="serviceName" className="block text-sm font-medium text-gray-700">
+                  服务名称 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="serviceName"
+                  value={serviceForm.name}
+                  onChange={(e) => setServiceForm({...serviceForm, name: e.target.value})}
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="serviceDescription" className="block text-sm font-medium text-gray-700">
+                  服务描述
+                </label>
+                <textarea
+                  id="serviceDescription"
+                  rows={3}
+                  value={serviceForm.description}
+                  onChange={(e) => setServiceForm({...serviceForm, description: e.target.value})}
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="servicePrice" className="block text-sm font-medium text-gray-700">
+                    价格 (¥) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    id="servicePrice"
+                    min="0"
+                    value={serviceForm.price}
+                    onChange={(e) => setServiceForm({...serviceForm, price: parseFloat(e.target.value) || 0})}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  />
+                </div>
+                
+                <div>
+                  <label htmlFor="serviceHours" className="block text-sm font-medium text-gray-700">
+                    预计工时 (小时)
+                  </label>
+                  <input
+                    type="number"
+                    id="serviceHours"
+                    min="0"
+                    step="0.5"
+                    value={serviceForm.estimatedHours}
+                    onChange={(e) => setServiceForm({...serviceForm, estimatedHours: parseFloat(e.target.value) || 0})}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  />
+                </div>
+              </div>
+              
+              <div className="pt-4 flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setShowServiceModal(false)}
+                  className="px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddService}
+                  disabled={updating}
+                  className="px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none disabled:opacity-50"
+                >
+                  {updating ? '添加中...' : '添加服务'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* 添加配件模态框 */}
+      {showPartModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg max-w-lg w-full p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium">添加维修配件</h3>
+              <button 
+                onClick={() => setShowPartModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <XCircleIcon className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="partName" className="block text-sm font-medium text-gray-700">
+                  配件名称 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="partName"
+                  value={partForm.name}
+                  onChange={(e) => setPartForm({...partForm, name: e.target.value})}
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="partDescription" className="block text-sm font-medium text-gray-700">
+                  配件描述
+                </label>
+                <textarea
+                  id="partDescription"
+                  rows={2}
+                  value={partForm.description}
+                  onChange={(e) => setPartForm({...partForm, description: e.target.value})}
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="partPrice" className="block text-sm font-medium text-gray-700">
+                    单价 (¥) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    id="partPrice"
+                    min="0"
+                    value={partForm.price}
+                    onChange={(e) => setPartForm({...partForm, price: parseFloat(e.target.value) || 0})}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  />
+                </div>
+                
+                <div>
+                  <label htmlFor="partQuantity" className="block text-sm font-medium text-gray-700">
+                    数量 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    id="partQuantity"
+                    min="1"
+                    value={partForm.quantity}
+                    onChange={(e) => setPartForm({...partForm, quantity: parseInt(e.target.value) || 1})}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <div className="flex items-center">
+                  <input
+                    id="isAvailable"
+                    name="isAvailable"
+                    type="checkbox"
+                    checked={partForm.isAvailable}
+                    onChange={(e) => setPartForm({...partForm, isAvailable: e.target.checked})}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="isAvailable" className="ml-2 block text-sm text-gray-700">
+                    库存可用
+                  </label>
+                </div>
+              </div>
+              
+              <div className="pt-4 flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setShowPartModal(false)}
+                  className="px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddPart}
+                  disabled={updating}
+                  className="px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none disabled:opacity-50"
+                >
+                  {updating ? '添加中...' : '添加配件'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* 添加照片模态框 */}
+      {showPhotoModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg max-w-lg w-full p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium">上传维修照片</h3>
+              <button 
+                onClick={() => {
+                  setShowPhotoModal(false);
+                  setSelectedFile(null);
+                  setPreviewUrl(null);
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <XCircleIcon className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="photoFile" className="block text-sm font-medium text-gray-700">
+                  选择图片 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="file"
+                  id="photoFile"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="mt-1 block w-full text-sm text-gray-500
+                    file:mr-4 file:py-2 file:px-4
+                    file:rounded-md file:border-0
+                    file:text-sm file:font-medium
+                    file:bg-blue-50 file:text-blue-700
+                    hover:file:bg-blue-100"
+                />
+              </div>
+              
+              {previewUrl && (
+                <div className="mt-2">
+                  <p className="text-sm font-medium text-gray-700 mb-1">预览</p>
+                  <div className="overflow-hidden rounded-md border border-gray-200 bg-gray-100">
+                    <img 
+                      src={previewUrl} 
+                      alt="预览图片" 
+                      className="h-48 w-full object-contain" 
+                    />
+                  </div>
+                </div>
+              )}
+              
+              <div>
+                <label htmlFor="photoCaption" className="block text-sm font-medium text-gray-700">
+                  图片描述
+                </label>
+                <input
+                  type="text"
+                  id="photoCaption"
+                  value={photoForm.caption}
+                  onChange={(e) => setPhotoForm({...photoForm, caption: e.target.value})}
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                />
+              </div>
+              
+              <div className="pt-4 flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPhotoModal(false);
+                    setSelectedFile(null);
+                    setPreviewUrl(null);
+                  }}
+                  className="px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddPhoto}
+                  disabled={updating || !previewUrl}
+                  className="px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none disabled:opacity-50"
+                >
+                  {updating ? '上传中...' : '上传照片'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
