@@ -1,54 +1,78 @@
-# 牧马单车网站
+# 沐马自行车管理系统
 
-牧马单车是一个专业的自行车商店网站，提供高品质自行车和配件销售，以及专业的维修和调校服务。
+![沐马自行车管理系统](public/logo.png)
 
-## 项目技术栈
+沐马自行车是一个专业的自行车店管理系统，提供销售、库存、维修和会员管理等功能。
 
-- **前端框架**：Next.js (React)
-- **样式**：Tailwind CSS
-- **语言**：TypeScript
+## 🚀 快速开始
 
-## 主要功能
+### 环境要求
 
-- 商品展示与购物车
-- 预约维修服务
-- Bike Fitting个性化服务
-- 会员系统（积分和优惠券）
-- 支付系统（支付宝和微信支付）
-- 物流追踪
+- Node.js v16.14.0+
+- npm v8.3.0+
+- MySQL v8.0+
 
-## 运行项目
-
-1. 确保已安装Node.js（推荐v18或更高版本）
-2. 克隆项目
-3. 安装依赖
+### 安装与运行
 
 ```bash
+# 安装依赖
 npm install
-```
 
-4. 运行开发服务器
+# 初始化数据库
+npx prisma migrate dev
 
-```bash
+# 加载测试数据
+npx prisma db seed
+
+# 启动开发服务器
 npm run dev
 ```
 
-5. 打开浏览器访问 [http://localhost:3000](http://localhost:3000)
+应用将在 http://localhost:3000 上运行。
 
-## 构建生产版本
+## 🔑 用户账号
 
-```bash
-npm run build
-npm start
-```
+| 角色 | 用户名 | 密码 | 说明 |
+|------|--------|------|------|
+| 管理员 | admin@mumabike.com | admin123 | 拥有全部权限 |
+| 店长 | manager@mumabike.com | manager123 | 拥有大部分管理权限 |
+| 技师 | tech1@mumabike.com | tech123 | 负责维修管理 |
+| 销售 | sales1@mumabike.com | sales123 | 负责销售和库存 |
+| 前台 | receptionist@mumabike.com | front123 | 负责接待和基础功能 |
 
-## 项目结构
+## 📚 功能模块
 
-- `/src/app` - Next.js App Router页面和路由
-- `/src/components` - 可复用组件
-- `/src/lib` - 工具函数和API调用
-- `/src/styles` - 全局样式
+- **销售管理**: 订单处理、库存查询、促销活动
+- **库存管理**: 商品管理、库存跟踪、进货管理
+- **维修管理**: 维修单处理、配件管理、技师排班
+- **会员管理**: 会员信息、积分系统、会员优惠
+- **数据报表**: 销售统计、绩效分析、库存报警
 
-## 部署
+## 📖 文档
 
-项目可以部署在Vercel、AWS、GCP等平台上。 
+详细的开发和部署文档请参考 [DEVELOPMENT.md](DEVELOPMENT.md)。
+
+## 🛠️ 技术栈
+
+- **前端**: Next.js 14, React, TailwindCSS
+- **后端**: Next.js API Routes
+- **数据库**: MySQL
+- **ORM**: Prisma
+- **认证**: 基于JWT的认证系统
+- **语言**: TypeScript
+
+## 📱 系统截图
+
+![管理后台](public/screenshots/dashboard.png)
+
+![维修管理](public/screenshots/repair.png)
+
+![会员管理](public/screenshots/customer.png)
+
+## 🤝 贡献指南
+
+欢迎贡献代码或提出问题！请参考[贡献指南](CONTRIBUTING.md)。
+
+## 📄 许可证
+
+本项目基于 [MIT 许可证](LICENSE)。 
