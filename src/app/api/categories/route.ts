@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getUserIdFromRequest, isAdmin } from '@/lib/auth/auth-utils';
 
 // GET /api/categories - Get all categories
 export async function GET(req: NextRequest) {
@@ -29,6 +30,22 @@ export async function GET(req: NextRequest) {
 // POST /api/categories - Create a new category
 export async function POST(req: NextRequest) {
   try {
+    const userId = await getUserIdFromRequest(req);
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized. Please log in.' },
+        { status: 401 }
+      );
+    }
+
+    if (!(await isAdmin(userId))) {
+      return NextResponse.json(
+        { error: 'Forbidden. Admins only.' },
+        { status: 403 }
+      );
+    }
+
     const { name, description, showOnHomepage } = await req.json();
 
     // Validate input
@@ -60,6 +77,22 @@ export async function POST(req: NextRequest) {
 // PATCH method is used for bulk operations
 export async function PATCH(req: NextRequest) {
   try {
+    const userId = await getUserIdFromRequest(req);
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized. Please log in.' },
+        { status: 401 }
+      );
+    }
+
+    if (!(await isAdmin(userId))) {
+      return NextResponse.json(
+        { error: 'Forbidden. Admins only.' },
+        { status: 403 }
+      );
+    }
+
     const { categories } = await req.json();
     
     if (!categories || !Array.isArray(categories)) {

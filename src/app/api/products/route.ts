@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getUserIdFromRequest, isAdmin } from '@/lib/auth/auth-utils';
 
 // GET /api/products - Get all products with filtering and pagination
 export async function GET(req: NextRequest) {
@@ -79,6 +80,22 @@ export async function GET(req: NextRequest) {
 // POST /api/products - Create a new product
 export async function POST(req: NextRequest) {
   try {
+    const userId = await getUserIdFromRequest(req);
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized. Please log in.' },
+        { status: 401 }
+      );
+    }
+
+    if (!(await isAdmin(userId))) {
+      return NextResponse.json(
+        { error: 'Forbidden. Admins only.' },
+        { status: 403 }
+      );
+    }
+
     const data = await req.json();
     
     // Validate required fields

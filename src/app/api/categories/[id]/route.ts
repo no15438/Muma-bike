@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getUserIdFromRequest, isAdmin } from '@/lib/auth/auth-utils';
 
 interface Params {
   params: {
@@ -41,6 +42,22 @@ export async function GET(req: NextRequest, { params }: Params) {
 // PUT /api/categories/[id] - Update a category
 export async function PUT(req: NextRequest, { params }: Params) {
   try {
+    const userId = await getUserIdFromRequest(req);
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized. Please log in.' },
+        { status: 401 }
+      );
+    }
+
+    if (!(await isAdmin(userId))) {
+      return NextResponse.json(
+        { error: 'Forbidden. Admins only.' },
+        { status: 403 }
+      );
+    }
+
     const { id } = params;
     const { name, description, showOnHomepage } = await req.json();
     
@@ -79,6 +96,22 @@ export async function PUT(req: NextRequest, { params }: Params) {
 // DELETE /api/categories/[id] - Delete a category
 export async function DELETE(req: NextRequest, { params }: Params) {
   try {
+    const userId = await getUserIdFromRequest(req);
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized. Please log in.' },
+        { status: 401 }
+      );
+    }
+
+    if (!(await isAdmin(userId))) {
+      return NextResponse.json(
+        { error: 'Forbidden. Admins only.' },
+        { status: 403 }
+      );
+    }
+
     const { id } = params;
     
     // Check if category exists
