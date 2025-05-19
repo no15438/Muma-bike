@@ -3,26 +3,64 @@ import { cookies } from 'next/headers';
 import * as crypto from 'crypto';
 import { prisma } from '../prisma';
 
+// JWT utility functions
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret';
+
+function base64url(input: Buffer) {
+  return input
+    .toString('base64')
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
+}
+
+export function signJwt(userId: string, expiresIn = 60 * 60 * 24) {
+  const header = { alg: 'HS256', typ: 'JWT' };
+  const payload = {
+    userId,
+    exp: Math.floor(Date.now() / 1000) + expiresIn
+  };
+  const encodedHeader = base64url(Buffer.from(JSON.stringify(header)));
+  const encodedPayload = base64url(Buffer.from(JSON.stringify(payload)));
+  const data = `${encodedHeader}.${encodedPayload}`;
+  const signature = crypto
+    .createHmac('sha256', JWT_SECRET)
+    .update(data)
+    .digest('base64')
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
+  return `${data}.${signature}`;
+}
+
+export function verifyJwt(token: string): string | null {
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  const [encodedHeader, encodedPayload, signature] = parts;
+  const data = `${encodedHeader}.${encodedPayload}`;
+  const expectedSig = crypto
+    .createHmac('sha256', JWT_SECRET)
+    .update(data)
+    .digest('base64')
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
+  if (signature !== expectedSig) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(encodedPayload, 'base64').toString());
+    if (typeof payload.exp !== 'number' || payload.exp < Date.now() / 1000) {
+      return null;
+    }
+    return payload.userId as string;
+  } catch {
+    return null;
+  }
+}
+
 // Extract user ID from token
 export async function getUserIdFromToken(token: string): Promise<string | null> {
   try {
-    // In a real app, this would validate JWT and extract user ID
-    // For now, just check if a user has this token in a simple validation
-    
-    // Find user with this token hash
-    const user = await prisma.user.findFirst({
-      select: { id: true },
-      where: {
-        id: {
-          startsWith: '' // Any user, we'll check token validity
-        }
-      }
-    });
-    
-    // In a real implementation, we would verify token signature, expiry, etc.
-    // This is a simplification for demonstration purposes
-    
-    return user?.id || null;
+    return verifyJwt(token);
   } catch (error) {
     console.error('Error validating token:', error);
     return null;

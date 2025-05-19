@@ -2,18 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import * as crypto from 'crypto';
 import { cookies } from 'next/headers';
+import { signJwt } from '@/lib/auth/auth-utils';
 
 // Helper function to hash passwords
 function hashPassword(password: string): string {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
 
-// Helper function to generate a simple token
-function generateToken(userId: string): string {
-  const timestamp = new Date().getTime();
-  const tokenData = `${userId}:${timestamp}:${process.env.JWT_SECRET || 'fallback_secret'}`;
-  return crypto.createHash('sha256').update(tokenData).digest('hex');
-}
 
 // POST /api/auth/login - User login
 export async function POST(req: NextRequest) {
@@ -45,8 +40,8 @@ export async function POST(req: NextRequest) {
       );
     }
     
-    // Generate a token
-    const token = generateToken(user.id);
+    // Generate a JWT token
+    const token = signJwt(user.id);
     
     // Set the token in a cookie
     const cookieStore = cookies();

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import * as crypto from 'crypto';
+import { cookies } from 'next/headers';
+import { signJwt } from '@/lib/auth/auth-utils';
 
 // Helper function to hash passwords
 function hashPassword(password: string): string {
@@ -60,16 +62,26 @@ export async function POST(req: NextRequest) {
       }
     });
     
-    // Create a point history record for the welcome bonus
-    await prisma.pointHistory.create({
-      data: {
-        userId: user.id,
-        change: 100,
-        reason: '注册欢迎礼包'
-      }
-    });
-    
-    return NextResponse.json(user, { status: 201 });
+  // Create a point history record for the welcome bonus
+  await prisma.pointHistory.create({
+    data: {
+      userId: user.id,
+      change: 100,
+      reason: '注册欢迎礼包'
+    }
+  });
+
+  // Generate JWT and set cookie
+  const token = signJwt(user.id);
+  const cookieStore = cookies();
+  cookieStore.set('authToken', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 86400,
+    path: '/'
+  });
+
+  return NextResponse.json({ user, token }, { status: 201 });
   } catch (error) {
     console.error('Error registering user:', error);
     return NextResponse.json(
