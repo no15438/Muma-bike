@@ -76,22 +76,28 @@ function NewUserPage() {
     setIsSubmitting(true);
     
     try {
-      // Simulate API call to create user
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // 调用API创建用户
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: formData.name.trim(),
+          email: formData.email.trim(),
+          password: formData.password,
+          role: formData.role,
+          isStaff: true
+        }),
+      });
       
-      // Generate a new user ID (in a real app, this would come from the backend)
-      const newId = (Math.max(...sampleStaff.map(user => parseInt(user.id))) + 1).toString();
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || '创建用户失败');
+      }
       
-      // Create a new user object (excluding password for this demo)
-      const newUser = {
-        id: newId,
-        name: formData.name.trim(),
-        email: formData.email.trim(),
-        role: formData.role,
-      };
-      
-      // In a real app, this would be an API call to create the user
-      // For now, we'll just assume it succeeded
+      const createdUser = await response.json();
+      console.log('User created:', createdUser);
       
       // Success message
       alert('用户创建成功！');
@@ -100,7 +106,7 @@ function NewUserPage() {
       router.push('/admin/users');
     } catch (error) {
       console.error('Failed to create user:', error);
-      alert('创建用户失败，请重试');
+      alert(error instanceof Error ? error.message : '创建用户失败，请重试');
     } finally {
       setIsSubmitting(false);
     }
